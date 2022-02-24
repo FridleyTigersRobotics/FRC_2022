@@ -113,14 +113,14 @@ class Robot : public frc::TimedRobot {
   // 0 - Out Stop
   // 1 - In Stop
   // 2 - Shooter Hood Stop
-  // 3 - Climber bottom out
-  // 4 - climbing encoder channel A quad
-  // 5 - climbing encoder channel B quad TODO: verify DIO channels
+  // 4 - Climber bottom out
+  // 5 - climbing encoder channel A quad
+  // 6 - climbing encoder channel B quad TODO: verify DIO channels
   frc::DigitalInput m_intakeOutStop{0};
   frc::DigitalInput m_intakeInStop {1};
   frc::DigitalInput m_hoodStop     {2};
-  frc::DigitalInput m_climbStop    {3};
-  frc::Encoder      m_climbEncoder {4,5, false, frc::CounterBase::EncodingType::k4X };
+  frc::DigitalInput m_climbStop    {4};
+  frc::Encoder      m_climbEncoder {5,6};
 
   // Analog Channels
   // 0 - Ball Detection

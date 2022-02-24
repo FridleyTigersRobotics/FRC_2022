@@ -83,6 +83,12 @@ void Robot::RobotInit() {
   m_shooterAngle.SetSelectedSensorPosition(0, 0, 10);
 
   /* Zero the climber encoder counter */
+
+  m_climbEncoder.SetMaxPeriod((units::second_t)1);
+  m_climbEncoder.SetMinRate(1);
+  m_climbEncoder.SetDistancePerPulse(0.1);
+  m_climbEncoder.SetReverseDirection(true);
+  m_climbEncoder.SetSamplesToAverage(2);
   m_climbEncoder.Reset();
 
   /* Zero the IMU yaw axis */
@@ -255,7 +261,7 @@ void Robot::TeleopPeriodic() {
   frc::SmartDashboard::PutNumber("Climber Index",   m_climbEncoder.Get() );
   if ( m_driverController.GetYButton() )//Y is release climb
   {
-    if( m_climbEncoder.Get() < 50 ) // int value, max encoder value for climber all the way up, dont overspool winch TODO: set this value
+    if( m_climbEncoder.Get() < 240000 ) // int value, max encoder value for climber all the way up, dont overspool winch TODO: set this value
     {
       m_climber.Set( ControlMode::PercentOutput, 1.0 );
     } 
