@@ -82,6 +82,8 @@ void Robot::RobotInit() {
   /* Zero the sensor */
   m_shooterAngle.SetSelectedSensorPosition(0, 0, 10);
 
+  /* Zero the climber encoder counter */
+  m_climbEncoder.Reset();
 }
 
 /**
@@ -240,13 +242,29 @@ void Robot::TeleopPeriodic() {
 
 
   // Climber Control
-  if ( m_driverController.GetXButton() )
+  frc::SmartDashboard::PutNumber("Climber Index",   m_climbEncoder.Get() );
+  if ( m_driverController.GetYButton() )//Y is release climb
   {
-    m_climber.Set( ControlMode::PercentOutput, 1.0 );
+    if( m_climbEncoder.Get() < 50 ) // int value, max encoder value for climber all the way up, dont overspool winch TODO: set this value
+    {
+      m_climber.Set( ControlMode::PercentOutput, 1.0 );
+    } 
+    else
+    {
+      m_climber.Set( ControlMode::PercentOutput, 0.0 );
+    }
   }
-  else if ( m_driverController.GetYButton() )
+  else if ( m_driverController.GetXButton() )//X is climb up
   {
-    m_climber.Set( ControlMode::PercentOutput, -1.0 );
+    if( m_climbStop.Get() ) // check if bottomed out climber
+    {
+      m_climber.Set( ControlMode::PercentOutput, 0.0 );
+      m_climbEncoder.Reset(); //re-zero encoder count
+    }
+    else
+    {
+      m_climber.Set( ControlMode::PercentOutput, -1.0 );
+    }
   } 
   else
   {
