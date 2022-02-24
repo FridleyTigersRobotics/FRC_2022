@@ -84,6 +84,9 @@ void Robot::RobotInit() {
 
   /* Zero the climber encoder counter */
   m_climbEncoder.Reset();
+
+  /* Zero the IMU yaw axis */
+  m_imu.ZeroYaw();
 }
 
 /**
