@@ -110,6 +110,8 @@ void Robot::AutonomousInit() {
 }
 
 void Robot::AutonomousPeriodic() {
+  //show IMU gyro values
+  IMUgyroView();
 
   // Calibrate Hood Angle.
   if ( !m_hoodAngleCalFinished )
@@ -128,10 +130,15 @@ void Robot::TeleopInit() {
 
 }
 
+
 // TODO : Check signs of all motors.
 
 void Robot::TeleopPeriodic() {
   bool targetValid = limelightNetworkTable->GetNumber("tv",false);
+  
+  //show IMU gyro values
+  IMUgyroView();
+  
 
   // Cannot aim until hood angle calibration has finished.
   bool Aiming        = m_driverController.GetAButton() && m_hoodAngleCalFinished;
@@ -406,7 +413,26 @@ void Robot::CalibrateShooterAngle()
   } 
 }
 
+void Robot::IMUgyroView()
+{
+  frc::SmartDashboard::PutNumber("IMU_Yaw",   m_imu.GetYaw() );
+  frc::SmartDashboard::PutNumber("IMU_Pitch",   m_imu.GetPitch() );
+  frc::SmartDashboard::PutNumber("IMU_Roll",   m_imu.GetRoll() );
 
+  /* Omnimount Yaw Axis Information                                           */
+  /* For more info, see http://navx-mxp.kauailabs.com/installation/omnimount  */
+  AHRS::BoardYawAxis yaw_axis = m_imu.GetBoardYawAxis(); //TODO: Calibrate Omnimount
+  frc::SmartDashboard::PutString(  "YawAxisDirection",     yaw_axis.up ? "Up" : "Down" );
+  frc::SmartDashboard::PutNumber(  "YawAxis",              yaw_axis.board_axis );
+  frc::SmartDashboard::PutString(  "IMU_FirmwareVersion",  m_imu.GetFirmwareVersion());
+
+  /* These functions are compatible w/the WPI Gyro Class */
+  frc::SmartDashboard::PutNumber(  "IMU_TotalYaw",         m_imu.GetAngle());
+  frc::SmartDashboard::PutNumber(  "IMU_YawRateDPS",       m_imu.GetRate());
+  frc::SmartDashboard::PutNumber(  "Displacement_X",       m_imu.GetDisplacementX() );
+  frc::SmartDashboard::PutNumber(  "Displacement_Y",       m_imu.GetDisplacementY() );
+
+}
 
 
 #ifndef RUNNING_FRC_TESTS

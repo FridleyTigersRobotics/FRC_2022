@@ -22,9 +22,12 @@
 #include <frc/TimedRobot.h>
 #include <frc/XboxController.h>
 #include <frc/Encoder.h>
+#include <frc/SPI.h>
 
 #include <ctre/Phoenix.h>
 #include <rev/CANSparkMax.h>
+#include <AHRS.h>
+
 
 class Robot : public frc::TimedRobot {
  public:
@@ -48,6 +51,9 @@ class Robot : public frc::TimedRobot {
   void StopShooterAngle();
   void ChangeShooterAngle( double );
   void CalibrateShooterAngle();
+  
+  AHRS m_imu {  frc::SPI::Port::kMXP };  /* Communicate w/navX-MXP via the MXP SPI Bus. Example https://pdocs.kauailabs.com/navx-mxp/examples/data-monitor/ creates pointer only here, then new construct later, TODO: test if this is ok instead  */
+  void IMUgyroView();
 
  private:
   frc::SendableChooser<std::string> m_chooser;
@@ -124,4 +130,5 @@ class Robot : public frc::TimedRobot {
   rev::SparkMaxPIDController   m_pidController = m_shooter.GetPIDController();
   rev::SparkMaxRelativeEncoder m_encoder       = m_shooter.GetEncoder();
 
+  
 };
