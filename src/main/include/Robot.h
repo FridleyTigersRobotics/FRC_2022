@@ -48,13 +48,25 @@ class Robot : public frc::TimedRobot {
   bool IntakeMovingInward();
   bool IsBallDetected();
   double DetermineShooterAngleFromTargetPosition( double );
-  double DetermineShooterSpeedFromTargetPosition( double targetPosition );
+  double DetermineShooterSpeedFromTargetPosition( double );
   void StopShooterAngle();
   void ChangeShooterAngle( double );
   void CalibrateShooterAngle();
   void GetAndSetShooterPidControls();
+  bool UpdateShooterSpeed();
+  bool UpdateShooterHoodAngle();
 
- 
+  void RunOneBallAuto();
+  bool DriveForTime( double );
+  bool RotateDegrees( double );
+  bool AimInAuto();
+  bool AimAndShootInAuto();
+
+  frc::Timer   m_autoTimer;
+  bool         m_initState{true};
+  unsigned int m_autoState{0};
+  double       m_initialAngle{0};
+
   
   AHRS m_imu {  frc::SPI::Port::kMXP };  /* Communicate w/navX-MXP via the MXP SPI Bus. Example https://pdocs.kauailabs.com/navx-mxp/examples/data-monitor/ creates pointer only here, then new construct later, TODO: test if this is ok instead  */
   void IMUgyroView();
@@ -81,6 +93,11 @@ class Robot : public frc::TimedRobot {
   double               kMinHoodPosition{ -150000 };
   frc2::PIDController  m_rotatePid{ kRotateP, kRotateI, kRotateD };
 
+  double               kRotateGyroP{ 0.05 };
+  double               kRotateGyroI{ 0.0001 };
+  double               kRotateGyroD{ 0.0 };
+
+  frc2::PIDController  m_rotateGyroPid{ kRotateGyroP, kRotateGyroI, kRotateGyroD };
 
   // Controllers
   frc::XboxController  m_driverController{0};

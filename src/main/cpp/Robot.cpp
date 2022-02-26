@@ -30,6 +30,9 @@ void Robot::RobotInit() {
   m_rotatePid.SetTolerance(5.0, 10);
   m_rotatePid.SetIntegratorRange(-0.6, 0.6);
 
+  m_rotateGyroPid.SetTolerance(5.0, 10);
+  m_rotateGyroPid.SetIntegratorRange(-0.6, 0.6);
+
   m_shooterMotor.RestoreFactoryDefaults();
   m_shooterMotor.SetInverted( true );
 
@@ -106,6 +109,8 @@ void Robot::RobotInit() {
   m_lastLoopAButton=(bool)false;
   m_holdshoot=(bool)false;
 
+  frc::SmartDashboard::PutBoolean( "ReadyToShoot", false );
+
 }
 
 /**
@@ -133,10 +138,15 @@ void Robot::AutonomousInit() {
 
 void Robot::AutonomousPeriodic() {
   //show IMU gyro values
-  IMUgyroView();
-
+  //IMUgyroView();
+  //m_drive.DriveCartesian( 0.5, 0, 0 );
   // Calibrate Hood Angle.
-  if ( !m_hoodAngleCalFinished )
+   m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
+  if ( m_hoodAngleCalFinished )
+  {
+    RunOneBallAuto();
+  }
+  else
   {
     CalibrateShooterAngle();
   }
@@ -213,11 +223,13 @@ void Robot::TeleopPeriodic() {
 
 
   // Drive system Control
+  bool robotAngleReadyToShoot = false;
   if ( Aiming )
   {
     double const targetXValue = limelightNetworkTable->GetNumber( "tx", 0.0 );
   #if DEBUG_DISABLE_AIMING_ROTATION
     double const rotation = 0;
+    robotAngleReadyToShoot = true;
   #else
     double const rotation = m_rotatePid.Calculate( targetXValue, 0.0 );
   #endif
@@ -230,15 +242,10 @@ void Robot::TeleopPeriodic() {
 
 
   // Shooter Control
+  bool shooterSpeedReadyToShoot = false;
   if ( Aiming )
   {
-  #if DEBUG_SHOOTER_PID
-    double const shooterSpeed = frc::SmartDashboard::GetNumber( "ShooterSpeed", 0 );
-  #else
-    double const targetYValue = limelightNetworkTable->GetNumber( "ty", 0.0 );
-    double const shooterSpeed = DetermineShooterSpeedFromTargetPosition( targetYValue );
-  #endif
-    m_shooterPid.SetReference( shooterSpeed, rev::ControlType::kVelocity );
+    shooterSpeedReadyToShoot = UpdateShooterSpeed();
   }
   else
   {
@@ -249,9 +256,11 @@ void Robot::TeleopPeriodic() {
 
 
   // Hood Control
+  bool hoodAngleReadyToShoot = false;
   if ( m_hoodAngleCalFinished )
   {
   #if DEBUG_MANUAL_HOOD_CONTROL
+    hoodAngleReadyToShoot = true;
     if ( m_logitechController.GetRightBumper() )
     {
       m_hoodAngle.Set( TalonSRXControlMode::PercentOutput,  0.2 );
@@ -265,18 +274,15 @@ void Robot::TeleopPeriodic() {
       m_hoodAngle.Set( TalonSRXControlMode::PercentOutput,  0.0 );
     }
   #else
-    double targetYValue         = limelightNetworkTable->GetNumber( "ty", 0.0 );
-    double shooterAnglePosition = DetermineShooterAngleFromTargetPosition( targetYValue );
-
     // Do we really want this?
-    if ( m_hoodStop.Get() )
+    /*if ( m_hoodStop.Get() )
     {
       m_hoodAngle.SetSelectedSensorPosition(0, 0, 10);
-    }
+    }*/
 
     if ( Aiming )
     {
-      ChangeShooterAngle( shooterAnglePosition );
+      UpdateShooterHoodAngle();
     }
     else
     {
@@ -288,10 +294,15 @@ void Robot::TeleopPeriodic() {
   {
     CalibrateShooterAngle();
   }
+
   frc::SmartDashboard::PutNumber("Hood Output",   m_hoodAngle.GetMotorOutputPercent() );
   frc::SmartDashboard::PutNumber("Hood Velocity", m_hoodAngle.GetSelectedSensorVelocity() );
   frc::SmartDashboard::PutNumber("Hood Position", m_hoodAngle.GetSelectedSensorPosition() );
   frc::SmartDashboard::PutNumber("Hood Error   ", m_hoodAngle.GetClosedLoopError(0) );
+
+  frc::SmartDashboard::PutBoolean( "ReadyToShoot", robotAngleReadyToShoot &&
+                                                  shooterSpeedReadyToShoot &&
+                                                  hoodAngleReadyToShoot );
 
 
   // Intake Control
@@ -416,6 +427,52 @@ void Robot::TestPeriodic() {
   }
 }
 
+
+// Shooter
+bool Robot::UpdateShooterSpeed()
+{
+  bool shooterSpeedReadyToShoot = false;
+#if DEBUG_SHOOTER_PID
+  double const shooterSpeed = frc::SmartDashboard::GetNumber( "ShooterSpeed", 0 );
+#else
+  double const targetYValue = limelightNetworkTable->GetNumber( "ty", 0.0 );
+  double const shooterSpeed = DetermineShooterSpeedFromTargetPosition( targetYValue );
+#endif
+
+  double shooterSpeedAbsError = shooterSpeed - m_shooterEncoder.GetVelocity();
+  if ( shooterSpeedAbsError < 100 )
+  {
+    shooterSpeedReadyToShoot = true;
+  }
+
+  m_shooterPid.SetReference( shooterSpeed, rev::ControlType::kVelocity );
+
+  return shooterSpeedReadyToShoot;
+}
+
+
+bool Robot::UpdateShooterHoodAngle()
+{
+  bool hoodAngleReadyToShoot = false;
+
+  double targetYValue         = limelightNetworkTable->GetNumber( "ty", 0.0 );
+  double shooterAnglePosition = DetermineShooterAngleFromTargetPosition( targetYValue );
+
+  ChangeShooterAngle( shooterAnglePosition );
+
+  hoodAngleReadyToShoot = fabs( m_hoodAngle.GetClosedLoopError() ) < 1000;
+
+  return hoodAngleReadyToShoot;
+}
+
+
+
+
+
+
+
+
+
 // Intake
 void Robot::SetIntakeMoveSpeed( double speed ) {
   bool intake_OutStop = !m_intakeOutStop.Get();
@@ -527,6 +584,178 @@ void Robot::IMUgyroView()
   frc::SmartDashboard::PutNumber(  "Displacement_X",       m_imu.GetDisplacementX() );
   frc::SmartDashboard::PutNumber(  "Displacement_Y",       m_imu.GetDisplacementY() );
 
+}
+
+
+
+
+// Autos
+void Robot::RunOneBallAuto()
+{
+  bool stateDone = false;
+
+
+  if ( m_hoodAngleCalFinished )
+  {
+    switch( m_autoState )
+    {
+      case 0:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 0\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+        }
+        stateDone = DriveForTime( 2.0 );
+
+        break;
+      }
+      case 1:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 1\n");
+          m_initialAngle = m_imu.GetYaw();
+        }
+        stateDone = RotateDegrees( m_initialAngle + 5.0 );
+
+        break;
+      }
+      case 2:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 2\n");
+          limelightNetworkTable->PutNumber( "camMode", 0 );
+          limelightNetworkTable->PutNumber( "ledMode", 3 ); //  3	force on
+          m_rotatePid.Reset();
+        }
+        stateDone = AimInAuto();
+        break;
+      }
+      case 3:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 3\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+        }
+        stateDone = AimAndShootInAuto();
+        break;
+      }
+      default:
+      {
+        limelightNetworkTable->PutNumber( "camMode", 1 );
+        limelightNetworkTable->PutNumber( "ledMode", 1 ); //  3	force on
+        m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
+
+        // Done, do nothing
+        break;
+      }
+    }
+
+    if ( m_initState )
+    {
+      m_initState = false;
+    }
+
+    if ( stateDone )
+    {
+      fmt::print( "stateDone {}\n", m_autoState );
+      m_autoState++;
+      m_initState = true;
+    }
+  }
+  else
+  {
+    CalibrateShooterAngle();
+  }
+}
+
+bool Robot::DriveForTime( double time )
+{
+  if ( m_autoTimer.Get() < (units::time::second_t)time )
+  {
+    m_drive.DriveCartesian( -0.4, 0.0, 0.0 );
+    return false;
+  }
+  else
+  {
+    m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
+    return true;
+  }
+}
+
+
+bool Robot::RotateDegrees( double angle )
+{
+  double rotationSpeed = m_rotateGyroPid.Calculate( m_imu.GetYaw(), angle );
+
+  if ( m_rotateGyroPid.AtSetpoint() )
+  {
+    m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
+    return true;
+  }
+  else
+  {
+    m_drive.DriveCartesian( 0.0, 0.0, rotationSpeed );
+    return false;
+  }
+}
+
+bool Robot::AimInAuto()
+{
+    double const targetXValue  = limelightNetworkTable->GetNumber( "tx", 0.0 );
+    double const rotationSpeed = m_rotatePid.Calculate( targetXValue, 0.0 );
+    m_drive.DriveCartesian( 0.0, 0.0, rotationSpeed );
+
+    bool robotAngleReadyToShoot   = m_rotatePid.AtSetpoint();
+    bool hoodAngleReadyToShoot    = UpdateShooterHoodAngle();
+    bool shooterSpeedReadyToShoot = UpdateShooterSpeed();
+
+    if ( robotAngleReadyToShoot && 
+         hoodAngleReadyToShoot  && 
+         shooterSpeedReadyToShoot )
+    {
+      return true;
+    }
+    else
+    {
+      return false;
+    }
+}
+
+bool Robot::AimAndShootInAuto()
+{
+  double const targetXValue  = limelightNetworkTable->GetNumber( "tx", 0.0 );
+  double const rotationSpeed = m_rotatePid.Calculate( targetXValue, 0.0 );
+  m_drive.DriveCartesian( 0.0, 0.0, rotationSpeed );
+  UpdateShooterHoodAngle();
+  UpdateShooterSpeed();
+
+  if ( m_autoTimer.Get() > (units::time::second_t)2.0 ) 
+  {
+    m_indexer.Set( -1.0 );
+  }
+  else
+  {
+    m_indexer.Set( 0.0 );
+  }
+
+  if ( m_autoTimer.Get() < (units::time::second_t)3.0 )
+  {
+    return false;
+  }
+  else
+  {
+    m_shooterMotor.Set( 0.0 );
+    m_indexer.Set( 0.0 );
+    return true;
+  }
 }
 
 #if DEBUG_SHOOTER_PID
