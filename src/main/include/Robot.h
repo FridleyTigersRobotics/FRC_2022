@@ -48,9 +48,11 @@ class Robot : public frc::TimedRobot {
   bool IntakeMovingInward();
   bool IsBallDetected();
   double DetermineShooterAngleFromTargetPosition( double );
+  double DetermineShooterSpeedFromTargetPosition( double targetPosition );
   void StopShooterAngle();
   void ChangeShooterAngle( double );
   void CalibrateShooterAngle();
+  void GetAndSetShooterPidControls();
 
  
   
@@ -80,8 +82,9 @@ class Robot : public frc::TimedRobot {
   frc2::PIDController  m_rotatePid{ kRotateP, kRotateI, kRotateD };
 
 
-
+  // Controllers
   frc::XboxController  m_driverController{0};
+  frc::XboxController  m_logitechController{1};
 
   // PWM Channels
   // 0 - Intake, in-out
@@ -110,8 +113,8 @@ class Robot : public frc::TimedRobot {
   // 3 - Climber
   // 4 - Intake Wheels
   // 5 - PDP
-  TalonSRX         m_shooterAngle{1};
-  rev::CANSparkMax m_shooter     {2, rev::CANSparkMaxLowLevel::MotorType::kBrushless };
+  TalonSRX         m_hoodAngle   {1};
+  rev::CANSparkMax m_shooterMotor{2, rev::CANSparkMaxLowLevel::MotorType::kBrushless };
   VictorSPX        m_climber     {3}; 
   VictorSPX        m_intakeSpin  {4}; 
 
@@ -133,8 +136,15 @@ class Robot : public frc::TimedRobot {
   frc::AnalogInput m_ballDetector{0};
 
 
-  rev::SparkMaxPIDController   m_pidController = m_shooter.GetPIDController();
-  rev::SparkMaxRelativeEncoder m_encoder       = m_shooter.GetEncoder();
+  rev::SparkMaxPIDController   m_shooterPid     = m_shooterMotor.GetPIDController();
+  rev::SparkMaxRelativeEncoder m_shooterEncoder = m_shooterMotor.GetEncoder();
 
   
+
+  double m_speed_P     = ( 0.0002 );
+  double m_speed_I     = ( 0.0 );
+  double m_speed_D     = ( 0.0 );
+  double m_speed_Izone = ( 0.0 );
+  double m_speedFF     = ( 0.0002 );
+
 };
