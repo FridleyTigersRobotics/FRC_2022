@@ -169,7 +169,7 @@ void Robot::TeleopPeriodic() {
   m_lastLoopAButton=m_driverController.GetAButton();
 
   // Cannot aim until hood angle calibration has finished and hold shoot timer is up;
-  bool Aiming        = m_driverController.GetAButton() && m_hoodAngleCalFinished && m_holdshoot;
+  bool Aiming        = (m_driverController.GetAButton() && m_hoodAngleCalFinished) || m_holdshoot;
   bool intakeEnabled = m_driverController.GetRightBumper();
 
   // Limelight Control
