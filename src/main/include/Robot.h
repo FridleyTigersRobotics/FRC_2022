@@ -51,6 +51,8 @@ class Robot : public frc::TimedRobot {
   void StopShooterAngle();
   void ChangeShooterAngle( double );
   void CalibrateShooterAngle();
+
+ 
   
   AHRS m_imu {  frc::SPI::Port::kMXP };  /* Communicate w/navX-MXP via the MXP SPI Bus. Example https://pdocs.kauailabs.com/navx-mxp/examples/data-monitor/ creates pointer only here, then new construct later, TODO: test if this is ok instead  */
   void IMUgyroView();
@@ -61,6 +63,10 @@ class Robot : public frc::TimedRobot {
   const std::string    kAutoNameCustom = "My Auto";
   std::string          m_autoSelected;
   bool                 m_hoodAngleCalFinished{false};
+
+  int m_shootTimeLoop; // iterative methods of robot are called every 20ms, timer to keep shooter wheel spinning
+  bool m_lastLoopAButton; // know when the a button was released
+  bool m_holdshoot; // override release of A press and keep shooter spinning
 
   std::shared_ptr<nt::NetworkTable> limelightNetworkTable;
 

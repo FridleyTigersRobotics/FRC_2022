@@ -93,6 +93,11 @@ void Robot::RobotInit() {
 
   /* Zero the IMU yaw axis */
   m_imu.ZeroYaw();
+
+  m_shootTimeLoop=0;
+  m_lastLoopAButton=(bool)false;
+  m_holdshoot=(bool)false;
+
 }
 
 /**
@@ -148,9 +153,23 @@ void Robot::TeleopPeriodic() {
   //show IMU gyro values
   IMUgyroView();
   
+  //determine if A button was just released, and should override to spin longer
+  if(!(m_driverController.GetAButton()) && m_lastLoopAButton){
+    m_shootTimeLoop = 0; 
+    m_holdshoot = (bool)true;
+  }
 
-  // Cannot aim until hood angle calibration has finished.
-  bool Aiming        = m_driverController.GetAButton() && m_hoodAngleCalFinished;
+  if(m_holdshoot){
+    m_shootTimeLoop++;//iterative method of robot called every 20ms
+    if(m_shootTimeLoop > 25){
+      m_holdshoot=(bool)false;
+    }
+  }
+
+  m_lastLoopAButton=m_driverController.GetAButton();
+
+  // Cannot aim until hood angle calibration has finished and hold shoot timer is up;
+  bool Aiming        = m_driverController.GetAButton() && m_hoodAngleCalFinished && m_holdshoot;
   bool intakeEnabled = m_driverController.GetRightBumper();
 
   // Limelight Control
