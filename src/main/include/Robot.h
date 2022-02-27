@@ -54,7 +54,9 @@ class Robot : public frc::TimedRobot {
   void CalibrateShooterAngle();
   void GetAndSetShooterPidControls();
   bool UpdateShooterSpeed();
-  bool UpdateShooterHoodAngle();
+  bool UpdateShooterSpeedForLowGoal();
+  bool UpdateShooterHoodAngleForHighGoal();
+  bool UpdateShooterHoodAngleForLowGoal();
 
   void RunOneBallAuto();
   bool DriveForTime( double );
@@ -82,6 +84,9 @@ class Robot : public frc::TimedRobot {
   bool m_lastLoopAButton; // know when the a button was released
   bool m_holdshoot; // override release of A press and keep shooter spinning
 
+  bool       m_runningIndexerAfterIntaking{false};
+  frc::Timer m_indexTimer;
+
   std::shared_ptr<nt::NetworkTable> limelightNetworkTable;
 
   // TODO : Update these PID values
@@ -92,6 +97,7 @@ class Robot : public frc::TimedRobot {
   double               kMaxHoodPosition{ 0 };
   double               kMinHoodPosition{ -150000 };
   frc2::PIDController  m_rotatePid{ kRotateP, kRotateI, kRotateD };
+  double               kRotatePidSetpoint{ -2.0 };
 
   double               kRotateGyroP{ 0.05 };
   double               kRotateGyroI{ 0.0001 };
@@ -158,10 +164,10 @@ class Robot : public frc::TimedRobot {
 
   
 
-  double m_speed_P     = ( 0.0002 );
-  double m_speed_I     = ( 0.0 );
-  double m_speed_D     = ( 0.0 );
+  double m_speed_P     = ( 0.0005 );
+  double m_speed_I     = ( 0.0000007 );
+  double m_speed_D     = ( 0.0000003 );
   double m_speed_Izone = ( 0.0 );
-  double m_speedFF     = ( 0.0002 );
+  double m_speedFF     = ( 0.0000 );
 
 };

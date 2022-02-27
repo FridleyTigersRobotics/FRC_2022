@@ -7,6 +7,7 @@
 #include <frc/smartdashboard/SmartDashboard.h>
 #include <frc/DigitalInput.h>
 
+#define DEBUG_LOW_GOAL_SHOOTING       ( 0 )
 #define DEBUG_SHOOTER_PID             ( 0 )
 #define DEBUG_DISABLE_AIMING_ROTATION ( 0 )
 #define DEBUG_MANUAL_HOOD_CONTROL     ( 0 )
@@ -15,6 +16,9 @@
 void Robot::RobotInit() {
 
   limelightNetworkTable = nt::NetworkTableInstance::GetDefault().GetTable("limelight");
+  limelightNetworkTable->PutNumber( "camMode", 1 );
+  limelightNetworkTable->PutNumber( "ledMode", 1 ); //  1	force off
+
 
   m_wheelFrontLeft.SetInverted( true );
   m_wheelRearLeft.SetInverted( true );
@@ -129,6 +133,9 @@ void Robot::AutonomousInit() {
   //     kAutoNameDefault);
   fmt::print("Auto selected: {}\n", m_autoSelected);
 
+  m_autoState = 0;
+  m_initState = true;
+
   if (m_autoSelected == kAutoNameCustom) {
     // Custom Auto goes here
   } else {
@@ -167,18 +174,26 @@ void Robot::TeleopInit() {
 
 void Robot::TeleopPeriodic() {
   // Controls
-  bool const   attemptToAim            = m_driverController.GetAButton();
+  bool const   attemptToAim            = m_driverController.GetAButton() || m_logitechController.GetAButton();
+  bool const   attemptToAimLowGoal     = m_driverController.GetXButton();
   bool const   intakeEnabled           = m_driverController.GetRightBumper();
+  bool const   intakePurge             = m_driverController.GetLeftBumper();
   double const driveSpeedY             = m_driverController.GetLeftY();
   double const driveSpeedX             = -m_driverController.GetLeftX();
   double const driveRotationNoDeadband = -m_driverController.GetRightX();
   double const driveRotation           = ( fabs( driveRotationNoDeadband ) < 0.3 ) ? 
-                                            0.0 : 
-                                            driveRotationNoDeadband;
-  double const indexerSpeed            = -m_driverController.GetRightTriggerAxis();
-  double const releaseClimber          = m_driverController.GetYButton();
-  double const engageClimber           = m_driverController.GetXButton();
-  
+                                           0.0 : 
+                                           driveRotationNoDeadband;
+  bool   const shootTheBall            = ( m_driverController.GetRightTriggerAxis() + m_logitechController.GetRightTriggerAxis() ) > 0.0;
+
+#if DEBUG_MANUAL_HOOD_CONTROL
+  double const releaseClimber          = 0;
+  double const engageClimber           = 0;
+#else
+  double const releaseClimber          = m_logitechController.GetLeftBumper();
+  double const engageClimber           = m_logitechController.GetRightBumper();
+#endif
+
   // Debug
 #if DEBUG_SHOOTER_PID
   GetAndSetShooterPidControls();
@@ -207,10 +222,11 @@ void Robot::TeleopPeriodic() {
   m_lastLoopAButton = attemptToAim;
 
   // Cannot aim until hood angle calibration has finished and hold shoot timer is up;
-  bool Aiming = ( attemptToAim && m_hoodAngleCalFinished ) || m_holdshoot;
+  bool AimingHighGoal = ( attemptToAim && m_hoodAngleCalFinished ) || m_holdshoot;
+  bool AimingLowGoal  = ( attemptToAimLowGoal && m_hoodAngleCalFinished );
 
   // Limelight Control
-  if ( Aiming )
+  if ( AimingHighGoal )
   {
     limelightNetworkTable->PutNumber( "camMode", 0 );
     limelightNetworkTable->PutNumber( "ledMode", 3 ); //  3	force on
@@ -224,14 +240,15 @@ void Robot::TeleopPeriodic() {
 
   // Drive system Control
   bool robotAngleReadyToShoot = false;
-  if ( Aiming )
+  if ( AimingHighGoal )
   {
     double const targetXValue = limelightNetworkTable->GetNumber( "tx", 0.0 );
   #if DEBUG_DISABLE_AIMING_ROTATION
     double const rotation = 0;
     robotAngleReadyToShoot = true;
   #else
-    double const rotation = m_rotatePid.Calculate( targetXValue, 0.0 );
+    m_rotatePid.SetSetpoint( kRotatePidSetpoint );
+    double const rotation = m_rotatePid.Calculate( targetXValue );
   #endif
     m_drive.DriveCartesian( driveSpeedY, driveSpeedX, rotation );
   }
@@ -243,7 +260,11 @@ void Robot::TeleopPeriodic() {
 
   // Shooter Control
   bool shooterSpeedReadyToShoot = false;
-  if ( Aiming )
+  if ( AimingLowGoal )
+  {
+    shooterSpeedReadyToShoot = UpdateShooterSpeedForLowGoal();
+  }
+  else if ( AimingHighGoal )
   {
     shooterSpeedReadyToShoot = UpdateShooterSpeed();
   }
@@ -274,19 +295,17 @@ void Robot::TeleopPeriodic() {
       m_hoodAngle.Set( TalonSRXControlMode::PercentOutput,  0.0 );
     }
   #else
-    // Do we really want this?
-    /*if ( m_hoodStop.Get() )
+    if ( AimingLowGoal )
     {
-      m_hoodAngle.SetSelectedSensorPosition(0, 0, 10);
-    }*/
-
-    if ( Aiming )
+      UpdateShooterHoodAngleForLowGoal();
+    }
+    else if ( AimingHighGoal )
     {
-      UpdateShooterHoodAngle();
+      UpdateShooterHoodAngleForHighGoal();
     }
     else
     {
-      StopShooterAngle();
+      ChangeShooterAngle( 0.0 );
     }
   #endif
   }
@@ -306,7 +325,12 @@ void Robot::TeleopPeriodic() {
 
 
   // Intake Control
-  if ( intakeEnabled ) 
+  if ( intakePurge )
+  {
+    m_intakeSpin.Set( ControlMode::PercentOutput, 1 );
+    MoveIntakeOut();
+  }
+  else if ( intakeEnabled ) 
   {
     m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
     MoveIntakeOut();
@@ -323,25 +347,35 @@ void Robot::TeleopPeriodic() {
     {
       m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
     }
-
-    // Pull balls into indexer when intake is moving inward.
-    if ( IntakeMovingInward() && 
-         !IsBallDetected() )
-    {
-      m_indexer.Set( -0.5 );
-    }
-    else
-    {
-      m_indexer.Set( 0.0 );
-    }
   }
-
 
   // Indexer Control
-  if ( Aiming )
+  double indexerSpeed = 0;
+  if ( IntakeMovingInward() )
   {
-    m_indexer.Set( indexerSpeed );
+    m_indexTimer.Reset();
+    m_indexTimer.Start();
+    m_runningIndexerAfterIntaking = true;
   }
+
+  // Pull balls into indexer when intake is moving inward.
+  if ( ( ( AimingHighGoal || AimingLowGoal ) && shootTheBall ) ||
+       ( ( IntakeMovingInward() || ( m_runningIndexerAfterIntaking && 
+                                     ( m_indexTimer.Get() < (units::time::second_t)1.0 ) ) 
+         ) && !IsBallDetected() )
+      )
+  {
+    indexerSpeed = -0.5;
+  }
+  else
+  {
+    m_runningIndexerAfterIntaking = false;
+    m_indexTimer.Stop();
+    m_indexTimer.Reset();
+    indexerSpeed = 0.0;
+  }
+
+  m_indexer.Set( indexerSpeed );
 
 
   // Climber Control
@@ -435,8 +469,36 @@ bool Robot::UpdateShooterSpeed()
 #if DEBUG_SHOOTER_PID
   double const shooterSpeed = frc::SmartDashboard::GetNumber( "ShooterSpeed", 0 );
 #else
-  double const targetYValue = limelightNetworkTable->GetNumber( "ty", 0.0 );
-  double const shooterSpeed = DetermineShooterSpeedFromTargetPosition( targetYValue );
+  //double const targetYValue = limelightNetworkTable->GetNumber( "ty", 0.0 );
+  if ( limelightNetworkTable->GetNumber( "tv", 0.0 ) > 0.0 )
+  {
+    double const targetYValue = limelightNetworkTable->GetNumber( "ty", 0.0 );
+    frc::SmartDashboard::PutNumber( "targetYValue",  targetYValue );
+    double const shooterSpeed = DetermineShooterSpeedFromTargetPosition( targetYValue );
+    double shooterSpeedAbsError = shooterSpeed - m_shooterEncoder.GetVelocity();
+    if ( shooterSpeedAbsError < 100 )
+    {
+      shooterSpeedReadyToShoot = true;
+    }
+
+    m_shooterPid.SetReference( shooterSpeed, rev::ControlType::kVelocity );
+  }
+  
+#endif
+
+
+  return shooterSpeedReadyToShoot;
+}
+
+bool Robot::UpdateShooterSpeedForLowGoal()
+{
+  // Speed 1500
+  // Hood -92000
+  bool shooterSpeedReadyToShoot = false;
+#if DEBUG_LOW_GOAL_SHOOTING
+  double const shooterSpeed = frc::SmartDashboard::GetNumber( "ShooterSpeed", 0 );
+#else
+  double const shooterSpeed = 1500;
 #endif
 
   double shooterSpeedAbsError = shooterSpeed - m_shooterEncoder.GetVelocity();
@@ -451,7 +513,7 @@ bool Robot::UpdateShooterSpeed()
 }
 
 
-bool Robot::UpdateShooterHoodAngle()
+bool Robot::UpdateShooterHoodAngleForHighGoal()
 {
   bool hoodAngleReadyToShoot = false;
 
@@ -465,11 +527,16 @@ bool Robot::UpdateShooterHoodAngle()
   return hoodAngleReadyToShoot;
 }
 
+bool Robot::UpdateShooterHoodAngleForLowGoal()
+{
+  bool hoodAngleReadyToShoot = false;
+  double shooterAnglePosition = -92000;
+  ChangeShooterAngle( shooterAnglePosition );
 
+  hoodAngleReadyToShoot = fabs( m_hoodAngle.GetClosedLoopError() ) < 1000;
 
-
-
-
+  return hoodAngleReadyToShoot;
+}
 
 
 
@@ -510,14 +577,14 @@ bool Robot::IsBallDetected() {
 double Robot::DetermineShooterAngleFromTargetPosition( double targetPosition )
 {
   // TODO : determine this equation.
-  double const hoodPosition = targetPosition * ( -150000 ) / ( 20.0 ); 
+  double const hoodPosition = 0;//targetPosition * ( -150000 ) / ( 20.0 ); 
   return hoodPosition;
 }
 
 double Robot::DetermineShooterSpeedFromTargetPosition( double targetPosition )
 {
   // TODO : determine this equation.
-  double const shooterSpeed = 2000; 
+  double const shooterSpeed = 3690 -74.6 * targetPosition + 1.22 * targetPosition * targetPosition; 
   return shooterSpeed;
 }
 
@@ -535,10 +602,10 @@ void Robot::ChangeShooterAngle( double position )
   // Change this so that 0 = bottom, 1 = top.
   //double const positionScale = 1.0; // TODO : determine this scale.
   //position = std::clamp( position, 0.0, 1.0 );
-  if ( m_hoodStop.Get() )
+  /*if ( m_hoodStop.Get() )
   {
     m_hoodAngle.SetSelectedSensorPosition(0, 0, 10);
-  }
+  }*/
 
   position = std::clamp( position, kMinHoodPosition, kMaxHoodPosition  );
 
@@ -617,9 +684,9 @@ void Robot::RunOneBallAuto()
         if ( m_initState )
         {
           fmt::print("Init 1\n");
-          m_initialAngle = m_imu.GetYaw();
+          m_initialAngle = m_imu.GetAngle();
         }
-        stateDone = RotateDegrees( m_initialAngle + 5.0 );
+        stateDone = RotateDegrees( m_initialAngle + 180.0 );
 
         break;
       }
@@ -631,6 +698,7 @@ void Robot::RunOneBallAuto()
           limelightNetworkTable->PutNumber( "camMode", 0 );
           limelightNetworkTable->PutNumber( "ledMode", 3 ); //  3	force on
           m_rotatePid.Reset();
+          m_rotatePid.SetSetpoint( kRotatePidSetpoint );
         }
         stateDone = AimInAuto();
         break;
@@ -680,7 +748,7 @@ bool Robot::DriveForTime( double time )
 {
   if ( m_autoTimer.Get() < (units::time::second_t)time )
   {
-    m_drive.DriveCartesian( -0.4, 0.0, 0.0 );
+    m_drive.DriveCartesian( -0.8, 0.0, 0.0 );
     return false;
   }
   else
@@ -693,7 +761,7 @@ bool Robot::DriveForTime( double time )
 
 bool Robot::RotateDegrees( double angle )
 {
-  double rotationSpeed = m_rotateGyroPid.Calculate( m_imu.GetYaw(), angle );
+  double rotationSpeed = m_rotateGyroPid.Calculate( m_imu.GetAngle(), angle );
 
   if ( m_rotateGyroPid.AtSetpoint() )
   {
@@ -702,7 +770,7 @@ bool Robot::RotateDegrees( double angle )
   }
   else
   {
-    m_drive.DriveCartesian( 0.0, 0.0, rotationSpeed );
+    m_drive.DriveCartesian( 0.0, 0.0, -rotationSpeed );
     return false;
   }
 }
@@ -710,11 +778,11 @@ bool Robot::RotateDegrees( double angle )
 bool Robot::AimInAuto()
 {
     double const targetXValue  = limelightNetworkTable->GetNumber( "tx", 0.0 );
-    double const rotationSpeed = m_rotatePid.Calculate( targetXValue, 0.0 );
+    double const rotationSpeed = m_rotatePid.Calculate( targetXValue );
     m_drive.DriveCartesian( 0.0, 0.0, rotationSpeed );
 
     bool robotAngleReadyToShoot   = m_rotatePid.AtSetpoint();
-    bool hoodAngleReadyToShoot    = UpdateShooterHoodAngle();
+    bool hoodAngleReadyToShoot    = UpdateShooterHoodAngleForHighGoal();
     bool shooterSpeedReadyToShoot = UpdateShooterSpeed();
 
     if ( robotAngleReadyToShoot && 
@@ -732,9 +800,9 @@ bool Robot::AimInAuto()
 bool Robot::AimAndShootInAuto()
 {
   double const targetXValue  = limelightNetworkTable->GetNumber( "tx", 0.0 );
-  double const rotationSpeed = m_rotatePid.Calculate( targetXValue, 0.0 );
+  double const rotationSpeed = m_rotatePid.Calculate( targetXValue );
   m_drive.DriveCartesian( 0.0, 0.0, rotationSpeed );
-  UpdateShooterHoodAngle();
+  UpdateShooterHoodAngleForHighGoal();
   UpdateShooterSpeed();
 
   if ( m_autoTimer.Get() > (units::time::second_t)2.0 ) 
