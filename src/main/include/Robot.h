@@ -170,4 +170,11 @@ class Robot : public frc::TimedRobot {
   double m_speed_Izone = ( 0.0 );
   double m_speedFF     = ( 0.0000 );
 
+  double m_spool_P     = ( 0.0000000 );
+  double m_spool_I     = ( 0.0000000 );
+  double m_spool_D     = ( 0.0000000 );
+  double m_spool_Izone = ( 0.0 );
+  double m_spool_FF    = ( 0.0001 );
+
+
 };

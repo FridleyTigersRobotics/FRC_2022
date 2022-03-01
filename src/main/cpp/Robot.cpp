@@ -11,6 +11,7 @@
 #define DEBUG_SHOOTER_PID             ( 0 )
 #define DEBUG_DISABLE_AIMING_ROTATION ( 0 )
 #define DEBUG_MANUAL_HOOD_CONTROL     ( 0 )
+#define DELAY_SHOOTER_PID_ENABLE      ( 0 )
 
 
 void Robot::RobotInit() {
@@ -47,12 +48,26 @@ void Robot::RobotInit() {
   m_shooterPid.SetFF( m_speedFF );
   m_shooterPid.SetOutputRange( -1.0, 1.0 );
 
+  m_shooterPid.SetP( m_spool_P, 1 );
+  m_shooterPid.SetI( m_spool_I, 1 );
+  m_shooterPid.SetD( m_spool_D, 1 );
+  m_shooterPid.SetIZone( m_spool_Izone, 1 );
+  m_shooterPid.SetFF( m_spool_FF, 1 );
+  m_shooterPid.SetOutputRange( -1.0, 1.0, 1 );
+
 #if DEBUG_SHOOTER_PID
   frc::SmartDashboard::PutNumber( "speed_P",     m_speed_P );
   frc::SmartDashboard::PutNumber( "speed_I",     m_speed_I );
   frc::SmartDashboard::PutNumber( "speed_D",     m_speed_D );
   frc::SmartDashboard::PutNumber( "speed_Izone", m_speed_Izone );
   frc::SmartDashboard::PutNumber( "speedFF",     m_speedFF );
+
+  frc::SmartDashboard::PutNumber( "m_spool_P",     m_spool_P );
+  frc::SmartDashboard::PutNumber( "m_spool_I",     m_spool_I );
+  frc::SmartDashboard::PutNumber( "m_spool_D",     m_spool_D );
+  frc::SmartDashboard::PutNumber( "m_spool_Izone", m_spool_Izone );
+  frc::SmartDashboard::PutNumber( "m_spool_FF",    m_spool_FF );
+
   frc::SmartDashboard::PutNumber( "ShooterSpeed", 2000 );
 #endif
 
@@ -478,7 +493,17 @@ bool Robot::UpdateShooterSpeed()
       shooterSpeedReadyToShoot = true;
     }
 
-    m_shooterPid.SetReference( shooterSpeed, rev::ControlType::kVelocity );
+  #if DELAY_SHOOTER_PID_ENABLE
+    if ( m_shooterEncoder.GetVelocity() < ( shooterSpeed - 500 ) )
+    {
+      m_shooterMotor.Set( 0.8 );
+      //m_shooterPid.SetReference( shooterSpeed, rev::ControlType::kVelocity, 1 );
+    }
+    else
+  #endif
+    {
+      m_shooterPid.SetReference( shooterSpeed, rev::ControlType::kVelocity, 0 );
+    }
   }
   
 #endif
@@ -489,8 +514,6 @@ bool Robot::UpdateShooterSpeed()
 
 bool Robot::UpdateShooterSpeedForLowGoal()
 {
-  // Speed 1500
-  // Hood -92000
   bool shooterSpeedReadyToShoot = false;
 #if DEBUG_LOW_GOAL_SHOOTING
   double const shooterSpeed = frc::SmartDashboard::GetNumber( "ShooterSpeed", 0 );
@@ -504,7 +527,17 @@ bool Robot::UpdateShooterSpeedForLowGoal()
     shooterSpeedReadyToShoot = true;
   }
 
-  m_shooterPid.SetReference( shooterSpeed, rev::ControlType::kVelocity );
+#if DELAY_SHOOTER_PID_ENABLE
+  if ( m_shooterEncoder.GetVelocity() < ( shooterSpeed - 500 ) )
+  {
+    m_shooterMotor.Set( 0.8 );
+    //m_shooterPid.SetReference( shooterSpeed, rev::ControlType::kVelocity, 1 );
+  }
+  else
+#endif
+  {
+    m_shooterPid.SetReference( shooterSpeed, rev::ControlType::kVelocity, 0 );
+  }
 
   return shooterSpeedReadyToShoot;
 }
@@ -856,6 +889,38 @@ void Robot::GetAndSetShooterPidControls()
   {
     m_speedFF = l_speedFF;
     m_shooterPid.SetFF( m_speedFF );
+  }
+
+  double l_spool_P     = frc::SmartDashboard::GetNumber( "spool_P",     0 );
+  double l_spool_I     = frc::SmartDashboard::GetNumber( "spool_I",     0 );
+  double l_spool_D     = frc::SmartDashboard::GetNumber( "spool_D",     0 );
+  double l_spool_Izone = frc::SmartDashboard::GetNumber( "spool_Izone", 0 );
+  double l_spool_FF    = frc::SmartDashboard::GetNumber( "spool_FF",     0 );
+
+  if ( l_spool_P != m_spool_P )
+  {
+    m_spool_P = l_spool_P;
+    m_shooterPid.SetP( m_spool_P, 1 );
+  }
+  if ( l_spool_I != m_spool_I )
+  {
+    m_spool_I = l_spool_I;
+    m_shooterPid.SetI( m_spool_I, 1 );
+  }
+  if ( l_spool_D != m_spool_D )
+  {
+    m_spool_D = l_spool_D;
+    m_shooterPid.SetD( m_spool_D, 1 );
+  }
+  if ( l_spool_Izone != m_spool_Izone )
+  {
+    m_spool_Izone = l_spool_Izone;
+    m_shooterPid.SetIZone( m_spool_Izone, 1 );
+  }
+  if ( l_spool_FF != m_spool_FF )
+  {
+    m_spool_FF = l_spool_FF;
+    m_shooterPid.SetFF( m_spool_FF, 1 );
   }
 }
 #endif
