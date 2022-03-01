@@ -23,9 +23,9 @@ void Robot::RobotInit() {
   m_wheelFrontLeft.SetInverted( true );
   m_wheelRearLeft.SetInverted( true );
 
-  m_chooser.SetDefaultOption(kAutoNameDefault, kAutoNameDefault);
-  m_chooser.AddOption(kAutoNameCustom, kAutoNameCustom);
-  frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
+  //m_chooser.SetDefaultOption(kAutoNameDefault, kAutoNameDefault);
+  //m_chooser.AddOption(kAutoNameCustom, kAutoNameCustom);
+  //frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
 
   // Does not seem to apply to the rotation...
   m_drive.SetDeadband(0.3);
@@ -114,7 +114,6 @@ void Robot::RobotInit() {
   m_holdshoot=(bool)false;
 
   frc::SmartDashboard::PutBoolean( "ReadyToShoot", false );
-
 }
 
 /**
@@ -146,7 +145,7 @@ void Robot::AutonomousInit() {
 void Robot::AutonomousPeriodic() {
   //show IMU gyro values
   //IMUgyroView();
-  //m_drive.DriveCartesian( 0.5, 0, 0 );
+
   // Calibrate Hood Angle.
    m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
   if ( m_hoodAngleCalFinished )
@@ -200,7 +199,7 @@ void Robot::TeleopPeriodic() {
 #endif
 
   // Show IMU gyro values
-  IMUgyroView();
+  //IMUgyroView();
   
   //determine if A button was just released, and should override to spin longer
   if ( !attemptToAim && m_lastLoopAButton )
@@ -272,9 +271,10 @@ void Robot::TeleopPeriodic() {
   {
     m_shooterMotor.Set( 0.0 );
   }
-  frc::SmartDashboard::PutNumber( "Shooter Speed:",  m_shooterEncoder.GetVelocity() );
-  frc::SmartDashboard::PutNumber( "Shooter Output:", m_shooterMotor.GetAppliedOutput() );
 
+  frc::SmartDashboard::PutNumber( "Shooter Speed",  m_shooterEncoder.GetVelocity() );
+  frc::SmartDashboard::PutNumber( "Shooter Output", m_shooterMotor.GetAppliedOutput() );
+  frc::SmartDashboard::PutNumber( "Shooter Temp",   m_shooterMotor.GetMotorTemperature() );
 
   // Hood Control
   bool hoodAngleReadyToShoot = false;
@@ -315,9 +315,7 @@ void Robot::TeleopPeriodic() {
   }
 
   frc::SmartDashboard::PutNumber("Hood Output",   m_hoodAngle.GetMotorOutputPercent() );
-  frc::SmartDashboard::PutNumber("Hood Velocity", m_hoodAngle.GetSelectedSensorVelocity() );
   frc::SmartDashboard::PutNumber("Hood Position", m_hoodAngle.GetSelectedSensorPosition() );
-  frc::SmartDashboard::PutNumber("Hood Error   ", m_hoodAngle.GetClosedLoopError(0) );
 
   frc::SmartDashboard::PutBoolean( "ReadyToShoot", robotAngleReadyToShoot &&
                                                   shooterSpeedReadyToShoot &&
@@ -379,7 +377,6 @@ void Robot::TeleopPeriodic() {
 
 
   // Climber Control
-  frc::SmartDashboard::PutNumber( "Climber Index", m_climbEncoder.Get() );
   if ( releaseClimber )
   {
     // int value, max encoder value for climber all the way up, dont overspool winch
