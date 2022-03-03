@@ -26,7 +26,8 @@ void Robot::RobotInit() {
   m_wheelRearLeft.SetInverted( true );
 
   m_chooser.SetDefaultOption(kAutoNameDefault, kAutoNameDefault);
-  m_chooser.AddOption(kAutoNameCustom, kAutoNameCustom);
+  m_chooser.AddOption(kAutoOneBall, kAutoOneBall);
+  m_chooser.AddOption(kAutoDrive, kAutoDrive);
   frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
 
   // Does not seem to apply to the rotation...
@@ -150,12 +151,6 @@ void Robot::AutonomousInit() {
 
   m_autoState = 0;
   m_initState = true;
-
-  if (m_autoSelected == kAutoNameCustom) {
-    // Custom Auto goes here
-  } else {
-    // Default Auto goes here
-  }
 }
 
 void Robot::AutonomousPeriodic() {
