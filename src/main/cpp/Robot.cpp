@@ -25,9 +25,9 @@ void Robot::RobotInit() {
   m_wheelFrontLeft.SetInverted( true );
   m_wheelRearLeft.SetInverted( true );
 
-  //m_chooser.SetDefaultOption(kAutoNameDefault, kAutoNameDefault);
-  //m_chooser.AddOption(kAutoNameCustom, kAutoNameCustom);
-  //frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
+  m_chooser.SetDefaultOption(kAutoNameDefault, kAutoNameDefault);
+  m_chooser.AddOption(kAutoNameCustom, kAutoNameCustom);
+  frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
 
   // Does not seem to apply to the rotation...
   m_drive.SetDeadband(0.3);
@@ -166,18 +166,26 @@ void Robot::AutonomousPeriodic() {
    m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
   if ( m_hoodAngleCalFinished )
   {
-    RunOneBallAuto();
+    if (m_autoSelected == kAutoOneBall) 
+    {
+      RunOneBallAuto( true );
+    } 
+    else if (m_autoSelected == kAutoDrive) 
+    {
+      RunOneBallAuto( false );
+    } 
+    else 
+    {
+      // Default Auto goes here
+      // Do nothing by default.
+    }
   }
   else
   {
     CalibrateShooterAngle();
   }
 
-  if (m_autoSelected == kAutoNameCustom) {
-    // Custom Auto goes here
-  } else {
-    // Default Auto goes here
-  }
+
 }
 
 void Robot::TeleopInit() {
@@ -708,10 +716,9 @@ void Robot::IMUgyroView()
 
 
 // Autos
-void Robot::RunOneBallAuto()
+void Robot::RunOneBallAuto( bool shoot )
 {
   bool stateDone = false;
-
 
   if ( m_hoodAngleCalFinished )
   {
@@ -743,27 +750,41 @@ void Robot::RunOneBallAuto()
       }
       case 2:
       {
-        if ( m_initState )
+        if ( shoot )
         {
-          fmt::print("Init 2\n");
-          limelightNetworkTable->PutNumber( "camMode", 0 );
-          limelightNetworkTable->PutNumber( "ledMode", 3 ); //  3	force on
-          m_rotatePid.Reset();
-          m_rotatePid.SetSetpoint( kRotatePidSetpoint );
+          if ( m_initState )
+          {
+            fmt::print("Init 2\n");
+            limelightNetworkTable->PutNumber( "camMode", 0 );
+            limelightNetworkTable->PutNumber( "ledMode", 3 ); //  3	force on
+            m_rotatePid.Reset();
+            m_rotatePid.SetSetpoint( kRotatePidSetpoint );
+          }
+          stateDone = AimInAuto();
         }
-        stateDone = AimInAuto();
+        else
+        {
+          stateDone = true;
+        }
         break;
       }
       case 3:
       {
-        if ( m_initState )
+        if ( shoot )
         {
-          fmt::print("Init 3\n");
-          m_autoTimer.Stop();
-          m_autoTimer.Reset();
-          m_autoTimer.Start();
+          if ( m_initState )
+          {
+            fmt::print("Init 3\n");
+            m_autoTimer.Stop();
+            m_autoTimer.Reset();
+            m_autoTimer.Start();
+          }
+          stateDone = AimAndShootInAuto();
         }
-        stateDone = AimAndShootInAuto();
+        else
+        {
+          stateDone = true;
+        }
         break;
       }
       default:

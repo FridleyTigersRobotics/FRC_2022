@@ -58,7 +58,7 @@ class Robot : public frc::TimedRobot {
   bool UpdateShooterHoodAngleForHighGoal();
   bool UpdateShooterHoodAngleForLowGoal();
 
-  void RunOneBallAuto();
+  void RunOneBallAuto( bool );
   bool DriveForTime( double );
   bool RotateDegrees( double );
   bool AimInAuto();
@@ -76,7 +76,8 @@ class Robot : public frc::TimedRobot {
  private:
   frc::SendableChooser<std::string> m_chooser;
   const std::string    kAutoNameDefault = "Default";
-  const std::string    kAutoNameCustom = "My Auto";
+  const std::string    kAutoOneBall     = "One Ball";
+  const std::string    kAutoDrive       = "Drive";
   std::string          m_autoSelected;
   bool                 m_hoodAngleCalFinished{false};
 
