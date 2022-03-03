@@ -163,12 +163,19 @@ class Robot : public frc::TimedRobot {
   rev::SparkMaxRelativeEncoder m_shooterEncoder = m_shooterMotor.GetEncoder();
 
   
-
+/*
   double m_speed_P     = ( 0.0005 );
   double m_speed_I     = ( 0.0000007 );
   double m_speed_D     = ( 0.0000003 );
   double m_speed_Izone = ( 0.0 );
-  double m_speedFF     = ( 0.0000 );
+  double m_speedFF     = ( 0.0000 );*/
+
+  double m_speed_P     = ( 0.0005 );
+  double m_speed_I     = ( 0.0000007 );
+  double m_speed_D     = ( 0.0000000 );
+  double m_speed_Izone = ( 0.0 );
+  double m_speedFF     = ( 0.0002 );
+
 
   double m_spool_P     = ( 0.0000000 );
   double m_spool_I     = ( 0.0000000 );

@@ -11,7 +11,7 @@
 #define DEBUG_SHOOTER_PID             ( 0 )
 #define DEBUG_DISABLE_AIMING_ROTATION ( 0 )
 #define DEBUG_MANUAL_HOOD_CONTROL     ( 0 )
-#define DELAY_SHOOTER_PID_ENABLE      ( 0 )
+#define DELAY_SHOOTER_PID_ENABLE      ( 1 )
 
 
 void Robot::RobotInit() {
@@ -478,15 +478,23 @@ void Robot::TestPeriodic() {
 bool Robot::UpdateShooterSpeed()
 {
   bool shooterSpeedReadyToShoot = false;
-#if DEBUG_SHOOTER_PID
-  double const shooterSpeed = frc::SmartDashboard::GetNumber( "ShooterSpeed", 0 );
-#else
+
+
   //double const targetYValue = limelightNetworkTable->GetNumber( "ty", 0.0 );
+#if !DEBUG_SHOOTER_PID
   if ( limelightNetworkTable->GetNumber( "tv", 0.0 ) > 0.0 )
+#endif
   {
     double const targetYValue = limelightNetworkTable->GetNumber( "ty", 0.0 );
     frc::SmartDashboard::PutNumber( "targetYValue",  targetYValue );
-    double const shooterSpeed = DetermineShooterSpeedFromTargetPosition( targetYValue );
+
+
+#if DEBUG_SHOOTER_PID
+  double const shooterSpeed = frc::SmartDashboard::GetNumber( "ShooterSpeed", 0 );
+#else
+  double const shooterSpeed = DetermineShooterSpeedFromTargetPosition( targetYValue );
+#endif
+
     double shooterSpeedAbsError = shooterSpeed - m_shooterEncoder.GetVelocity();
     if ( shooterSpeedAbsError < 100 )
     {
@@ -505,8 +513,6 @@ bool Robot::UpdateShooterSpeed()
       m_shooterPid.SetReference( shooterSpeed, rev::ControlType::kVelocity, 0 );
     }
   }
-  
-#endif
 
 
   return shooterSpeedReadyToShoot;
@@ -614,7 +620,7 @@ double Robot::DetermineShooterAngleFromTargetPosition( double targetPosition )
 double Robot::DetermineShooterSpeedFromTargetPosition( double targetPosition )
 {
   // TODO : determine this equation.
-  double const shooterSpeed = 3690 -74.6 * targetPosition + 1.22 * targetPosition * targetPosition; 
+  double const shooterSpeed = 3690 -74.6 * targetPosition + 1.22 * targetPosition * targetPosition;
   return shooterSpeed;
 }
 
