@@ -12,6 +12,7 @@
 #define DEBUG_DISABLE_AIMING_ROTATION ( 0 )
 #define DEBUG_MANUAL_HOOD_CONTROL     ( 0 )
 #define DELAY_SHOOTER_PID_ENABLE      ( 1 )
+#define USE_HOOD_ANGLE_AT_LONG_RANGE  ( 0 )
 
 
 void Robot::RobotInit() {
@@ -612,15 +613,29 @@ bool Robot::IsBallDetected() {
 
 double Robot::DetermineShooterAngleFromTargetPosition( double targetPosition )
 {
-  // TODO : determine this equation.
-  double const hoodPosition = 0;//targetPosition * ( -150000 ) / ( 20.0 ); 
+  double hoodPosition = 0;
+#if USE_HOOD_ANGLE_AT_LONG_RANGE
+  if ( targetPosition < m_longRangeStartAngle )
+  {
+    double targetPositionDelta = m_longRangeStartAngle - targetPosition;
+    hoodPosition = targetPositionDelta * ( -10000 );
+  }
+#endif
   return hoodPosition;
 }
 
 double Robot::DetermineShooterSpeedFromTargetPosition( double targetPosition )
 {
-  // TODO : determine this equation.
+  // Stop changing speed when hood control takes over.
+#if USE_HOOD_ANGLE_AT_LONG_RANGE
+  if ( targetPosition < m_longRangeStartAngle )
+  {
+    targetPosition = m_longRangeStartAngle;
+  }
+#endif
   double const shooterSpeed = 3690 -74.6 * targetPosition + 1.22 * targetPosition * targetPosition;
+
+
   return shooterSpeed;
 }
 
@@ -711,7 +726,7 @@ void Robot::RunOneBallAuto()
           m_autoTimer.Reset();
           m_autoTimer.Start();
         }
-        stateDone = DriveForTime( 2.0 );
+        stateDone = DriveForTime( 1.5 );
 
         break;
       }
