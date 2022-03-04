@@ -12,7 +12,7 @@
 #define DEBUG_DISABLE_AIMING_ROTATION ( 0 )
 #define DEBUG_MANUAL_HOOD_CONTROL     ( 0 )
 #define DELAY_SHOOTER_PID_ENABLE      ( 1 )
-#define USE_HOOD_ANGLE_AT_LONG_RANGE  ( 0 )
+#define USE_HOOD_ANGLE_AT_LONG_RANGE  ( 1 )
 
 
 void Robot::RobotInit() {
@@ -149,6 +149,9 @@ void Robot::AutonomousInit() {
   //     kAutoNameDefault);
   fmt::print("Auto selected: {}\n", m_autoSelected);
 
+  limelightNetworkTable->PutNumber( "camMode", 1 );
+  limelightNetworkTable->PutNumber( "ledMode", 1 ); //  1	force off
+
   m_autoState = 0;
   m_initState = true;
 }
@@ -184,7 +187,7 @@ void Robot::AutonomousPeriodic() {
 }
 
 void Robot::TeleopInit() {
-
+  m_climbStarted = false;
 }
 
 
@@ -193,7 +196,7 @@ void Robot::TeleopInit() {
 void Robot::TeleopPeriodic() {
   // Controls
   bool const   attemptToAim            = m_driverController.GetAButton() || m_logitechController.GetAButton();
-  bool const   attemptToAimLowGoal     = m_driverController.GetXButton();
+  bool const   attemptToAimLowGoal     = m_driverController.GetXButton() || m_logitechController.GetXButton();
   bool const   intakeEnabled           = m_driverController.GetRightBumper();
   bool const   intakePurge             = m_driverController.GetLeftBumper();
   double const driveSpeedY             = m_driverController.GetLeftY();
@@ -398,6 +401,7 @@ void Robot::TeleopPeriodic() {
   // Climber Control
   if ( releaseClimber )
   {
+    m_climbStarted = true;
     // int value, max encoder value for climber all the way up, dont overspool winch
     if( m_climbEncoder.Get() < 240000 ) 
     {
@@ -410,6 +414,7 @@ void Robot::TeleopPeriodic() {
   }
   else if ( engageClimber )
   {
+    m_climbStarted = true;
     if( m_climbStop.Get() ) // check if bottomed out climber
     {
       m_climber.Set( ControlMode::PercentOutput, 0.0 );
@@ -422,7 +427,22 @@ void Robot::TeleopPeriodic() {
   } 
   else
   {
-    m_climber.Set( ControlMode::PercentOutput, 0.0 );
+    if ( m_climbStarted )
+    {
+      m_climber.Set( ControlMode::PercentOutput, 0.0 );
+    }
+    else
+    {
+      if( m_climbStop.Get() ) // check if bottomed out climber
+      {
+        m_climber.Set( ControlMode::PercentOutput, 0.0 );
+        m_climbEncoder.Reset(); //re-zero encoder count
+      }
+      else
+      {
+        m_climber.Set( ControlMode::PercentOutput, -0.3 );
+      }
+    }
   }
 }
 
@@ -621,7 +641,7 @@ double Robot::DetermineShooterAngleFromTargetPosition( double targetPosition )
   if ( targetPosition < m_longRangeStartAngle )
   {
     double targetPositionDelta = m_longRangeStartAngle - targetPosition;
-    hoodPosition = targetPositionDelta * ( -10000 );
+    hoodPosition = targetPositionDelta * ( -15000 );
   }
 #endif
   return hoodPosition;
@@ -636,7 +656,7 @@ double Robot::DetermineShooterSpeedFromTargetPosition( double targetPosition )
     targetPosition = m_longRangeStartAngle;
   }
 #endif
-  double const shooterSpeed = 3690 -74.6 * targetPosition + 1.22 * targetPosition * targetPosition;
+  double const shooterSpeed = 3900 -90.6 * targetPosition + 1.52 * targetPosition * targetPosition;
 
 
   return shooterSpeed;
@@ -728,19 +748,25 @@ void Robot::RunOneBallAuto( bool shoot )
           m_autoTimer.Reset();
           m_autoTimer.Start();
         }
-        stateDone = DriveForTime( 1.5 );
+        stateDone = DriveForTime( 1.0 );
 
         break;
       }
       case 1:
       {
+        if ( shoot )
+        {
         if ( m_initState )
         {
           fmt::print("Init 1\n");
           m_initialAngle = m_imu.GetAngle();
         }
         stateDone = RotateDegrees( m_initialAngle + 180.0 );
-
+        }
+        else
+        {
+          stateDone = true;
+        }
         break;
       }
       case 2:

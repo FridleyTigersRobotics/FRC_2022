@@ -184,5 +184,6 @@ class Robot : public frc::TimedRobot {
   double m_spool_Izone = ( 0.0 );
   double m_spool_FF    = ( 0.0001 );
 
-  double m_longRangeStartAngle{0.0};
+  double m_longRangeStartAngle{2.0};
+  bool   m_climbStarted{false};
 };
