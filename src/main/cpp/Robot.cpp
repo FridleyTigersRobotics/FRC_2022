@@ -13,6 +13,7 @@
 #define DEBUG_MANUAL_HOOD_CONTROL     ( 0 )
 #define DELAY_SHOOTER_PID_ENABLE      ( 1 )
 #define USE_HOOD_ANGLE_AT_LONG_RANGE  ( 1 )
+#define LOW_POWER_SHOOTING            ( 0 )
 
 
 void Robot::RobotInit() {
@@ -241,7 +242,7 @@ void Robot::TeleopPeriodic() {
   {
     // iterative method of robot called every 20ms
     m_shootTimeLoop++;
-    if ( m_shootTimeLoop > 25 )
+    if ( m_shootTimeLoop > 5 )
     {
       m_holdshoot = false;
     }
@@ -674,8 +675,12 @@ double Robot::DetermineShooterSpeedFromTargetPosition( double targetPosition )
     targetPosition = m_longRangeStartAngle;
   }
 #endif
-  double const shooterSpeed = 3900 -90.6 * targetPosition + 1.52 * targetPosition * targetPosition;
 
+#if LOW_POWER_SHOOTING
+  double const shooterSpeed = 1500;
+#else
+  double const shooterSpeed = 3900 -90.6 * targetPosition + 1.52 * targetPosition * targetPosition;
+#endif
 
   return shooterSpeed;
 }
@@ -746,7 +751,7 @@ void Robot::IMUgyroView()
 }
 
 
-
+bool ballPickupTest = true;
 
 // Autos
 void Robot::RunOneBallAuto( bool shoot )
@@ -768,18 +773,38 @@ void Robot::RunOneBallAuto( bool shoot )
         }
         stateDone = DriveForTime( 1.0 );
 
+        if ( ballPickupTest )
+        {
+          m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+          MoveIntakeOut();
+        }
+
         break;
       }
       case 1:
       {
         if ( shoot )
         {
-        if ( m_initState )
-        {
-          fmt::print("Init 1\n");
-          m_initialAngle = m_imu.GetAngle();
-        }
-        stateDone = RotateDegrees( m_initialAngle + 180.0 );
+          if ( m_initState )
+          {
+            fmt::print("Init 1\n");
+            m_initialAngle = m_imu.GetAngle();
+          }
+          stateDone = RotateDegrees( m_initialAngle + 180.0 );
+
+          if ( ballPickupTest )
+          {
+            MoveIntakeIn();
+
+            if ( IntakeMovingInward() )
+            {
+              m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+            }
+            else
+            {
+              m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
+            }
+          }
         }
         else
         {
