@@ -188,6 +188,7 @@ void Robot::AutonomousPeriodic() {
 
 void Robot::TeleopInit() {
   m_climbStarted = false;
+  m_intakeMotionEnable = true;
 }
 
 
@@ -195,6 +196,7 @@ void Robot::TeleopInit() {
 
 void Robot::TeleopPeriodic() {
   // Controls
+  bool const   toggleIntakeMovement    = m_driverController.GetBackButtonPressed();
   bool const   attemptToAim            = m_driverController.GetAButton() || m_logitechController.GetAButton();
   bool const   attemptToAimLowGoal     = m_driverController.GetXButton() || m_logitechController.GetXButton();
   bool const   intakeEnabled           = m_driverController.GetRightBumper();
@@ -214,6 +216,11 @@ void Robot::TeleopPeriodic() {
   double const releaseClimber          = m_logitechController.GetLeftBumper();
   double const engageClimber           = m_logitechController.GetRightBumper();
 #endif
+
+  if ( toggleIntakeMovement )
+  {
+    m_intakeMotionEnable = !m_intakeMotionEnable;
+  }
 
   // Debug
 #if DEBUG_SHOOTER_PID
@@ -345,28 +352,39 @@ void Robot::TeleopPeriodic() {
 
 
   // Intake Control
-  if ( intakePurge )
-  {
-    m_intakeSpin.Set( ControlMode::PercentOutput, 1 );
-    MoveIntakeOut();
-  }
-  else if ( intakeEnabled ) 
-  {
-    m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
-    MoveIntakeOut();
-  }
-  else
-  {
-    MoveIntakeIn();
 
-    if ( IntakeMovingInward() )
+  if ( m_intakeMotionEnable )
+  {
+    if ( intakePurge )
+    {
+      m_intakeSpin.Set( ControlMode::PercentOutput, 1 );
+      MoveIntakeOut();
+    }
+    else if ( intakeEnabled ) 
     {
       m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+      MoveIntakeOut();
     }
     else
     {
-      m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
+      MoveIntakeIn();
+
+      if ( IntakeMovingInward() )
+      {
+        m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+      }
+      else
+      {
+        m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
+      }
     }
+
+
+
+  }
+  else{
+    SetIntakeMoveSpeed( 0.0 );
+    m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
   }
 
   // Indexer Control
@@ -382,7 +400,7 @@ void Robot::TeleopPeriodic() {
   if ( ( ( AimingHighGoal || AimingLowGoal ) && shootTheBall ) ||
        ( ( IntakeMovingInward() || ( m_runningIndexerAfterIntaking && 
                                      ( m_indexTimer.Get() < (units::time::second_t)1.0 ) ) 
-         ) && !IsBallDetected() )
+         ) && !IsBallDetected() && m_intakeMotionEnable )
       )
   {
     indexerSpeed = -0.5;

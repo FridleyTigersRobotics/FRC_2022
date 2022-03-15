@@ -186,4 +186,5 @@ class Robot : public frc::TimedRobot {
 
   double m_longRangeStartAngle{2.0};
   bool   m_climbStarted{false};
+  bool   m_intakeMotionEnable{true};
 };
