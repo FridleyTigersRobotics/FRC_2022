@@ -59,7 +59,8 @@ class Robot : public frc::TimedRobot {
   bool UpdateShooterHoodAngleForLowGoal();
 
   void RunOneBallAuto( bool );
-  bool DriveForTime( double );
+  void RunThreeBallAuto( bool );
+  bool DriveForTime( double, double, double );
   bool RotateDegrees( double );
   bool AimInAuto();
   bool AimAndShootInAuto();
@@ -68,7 +69,7 @@ class Robot : public frc::TimedRobot {
   bool         m_initState{true};
   unsigned int m_autoState{0};
   double       m_initialAngle{0};
-
+  double       m_autoStartAngle{0};
   
   AHRS m_imu {  frc::SPI::Port::kMXP };  /* Communicate w/navX-MXP via the MXP SPI Bus. Example https://pdocs.kauailabs.com/navx-mxp/examples/data-monitor/ creates pointer only here, then new construct later, TODO: test if this is ok instead  */
   void IMUgyroView();

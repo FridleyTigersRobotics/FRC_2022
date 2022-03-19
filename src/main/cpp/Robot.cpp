@@ -167,7 +167,7 @@ void Robot::AutonomousPeriodic() {
   {
     if (m_autoSelected == kAutoOneBall) 
     {
-      RunOneBallAuto( true );
+      RunThreeBallAuto( true );
     } 
     else if (m_autoSelected == kAutoDrive) 
     {
@@ -229,7 +229,7 @@ void Robot::TeleopPeriodic() {
 #endif
 
   // Show IMU gyro values
-  //IMUgyroView();
+  IMUgyroView();
   
   //determine if A button was just released, and should override to spin longer
   if ( !attemptToAim && m_lastLoopAButton )
@@ -770,8 +770,9 @@ void Robot::RunOneBallAuto( bool shoot )
           m_autoTimer.Stop();
           m_autoTimer.Reset();
           m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
         }
-        stateDone = DriveForTime( 1.0 );
+        stateDone = DriveForTime( 0.6, 1.2, m_initialAngle );
 
         if ( ballPickupTest )
         {
@@ -781,13 +782,43 @@ void Robot::RunOneBallAuto( bool shoot )
 
         break;
       }
+
       case 1:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 1\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime( -0.6, 0.2, m_initialAngle );
+
+        if ( ballPickupTest )
+        {
+          MoveIntakeIn();
+
+          if ( IntakeMovingInward() )
+          {
+            m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+          }
+          else
+          {
+            m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
+          }
+        }
+
+        break;
+      }
+
+      case 2:
       {
         if ( shoot )
         {
           if ( m_initState )
           {
-            fmt::print("Init 1\n");
+            fmt::print("Init 2\n");
             m_initialAngle = m_imu.GetAngle();
           }
           stateDone = RotateDegrees( m_initialAngle + 180.0 );
@@ -812,26 +843,6 @@ void Robot::RunOneBallAuto( bool shoot )
         }
         break;
       }
-      case 2:
-      {
-        if ( shoot )
-        {
-          if ( m_initState )
-          {
-            fmt::print("Init 2\n");
-            limelightNetworkTable->PutNumber( "camMode", 0 );
-            limelightNetworkTable->PutNumber( "ledMode", 3 ); //  3	force on
-            m_rotatePid.Reset();
-            m_rotatePid.SetSetpoint( kRotatePidSetpoint );
-          }
-          stateDone = AimInAuto();
-        }
-        else
-        {
-          stateDone = true;
-        }
-        break;
-      }
       case 3:
       {
         if ( shoot )
@@ -839,6 +850,33 @@ void Robot::RunOneBallAuto( bool shoot )
           if ( m_initState )
           {
             fmt::print("Init 3\n");
+            limelightNetworkTable->PutNumber( "camMode", 0 );
+            limelightNetworkTable->PutNumber( "ledMode", 3 ); //  3	force on
+            m_rotatePid.Reset();
+            m_rotatePid.SetSetpoint( kRotatePidSetpoint );
+            m_autoTimer.Stop();
+            m_autoTimer.Reset();
+            m_autoTimer.Start();
+          }
+          stateDone = AimInAuto();
+          if ( m_autoTimer.Get() > (units::time::second_t)1.0 )
+          {
+            stateDone = true;
+          }
+        }
+        else
+        {
+          stateDone = true;
+        }
+        break;
+      }
+      case 4:
+      {
+        if ( shoot )
+        {
+          if ( m_initState )
+          {
+            fmt::print("Init 4\n");
             m_autoTimer.Stop();
             m_autoTimer.Reset();
             m_autoTimer.Start();
@@ -851,6 +889,24 @@ void Robot::RunOneBallAuto( bool shoot )
         }
         break;
       }
+
+      case 5:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 5\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime( -0.6, 0.4, m_initialAngle );
+
+        break;
+      }
+
+
+
       default:
       {
         limelightNetworkTable->PutNumber( "camMode", 1 );
@@ -880,11 +936,344 @@ void Robot::RunOneBallAuto( bool shoot )
   }
 }
 
-bool Robot::DriveForTime( double time )
+
+
+
+
+// Autos
+void Robot::RunThreeBallAuto( bool shoot )
 {
+  bool stateDone = false;
+
+  if ( m_hoodAngleCalFinished )
+  {
+    switch( m_autoState )
+    {
+      case 0:
+      {
+        if ( m_initState )
+        {
+          m_autoStartAngle = m_imu.GetAngle();;
+          fmt::print("Init 0\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime( 0.6, 1.4, m_initialAngle );
+
+        if ( ballPickupTest )
+        {
+          m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+          MoveIntakeOut();
+        }
+
+        break;
+      }
+
+      case 1:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 1\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime( -0.6, 0.05, m_initialAngle );
+
+        if ( ballPickupTest )
+        {
+          MoveIntakeIn();
+
+          if ( IntakeMovingInward() )
+          {
+            m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+          }
+          else
+          {
+            m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
+          }
+        }
+
+        break;
+      }
+
+      case 2:
+      {
+        if ( shoot )
+        {
+          if ( m_initState )
+          {
+            fmt::print("Init 2\n");
+            m_initialAngle = m_imu.GetAngle();
+          }
+          stateDone = RotateDegrees( m_initialAngle + 180.0 );
+
+          if ( ballPickupTest )
+          {
+            MoveIntakeIn();
+
+            if ( IntakeMovingInward() )
+            {
+              m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+            }
+            else
+            {
+              m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
+            }
+          }
+        }
+        else
+        {
+          stateDone = true;
+        }
+        break;
+      }
+      case 3:
+      {
+        if ( shoot )
+        {
+          if ( m_initState )
+          {
+            fmt::print("Init 3\n");
+            limelightNetworkTable->PutNumber( "camMode", 0 );
+            limelightNetworkTable->PutNumber( "ledMode", 3 ); //  3	force on
+            m_rotatePid.Reset();
+            m_rotatePid.SetSetpoint( kRotatePidSetpoint );
+            m_autoTimer.Stop();
+            m_autoTimer.Reset();
+            m_autoTimer.Start();
+          }
+          stateDone = AimInAuto();
+          if ( m_autoTimer.Get() > (units::time::second_t)1.0 )
+          {
+            stateDone = true;
+          }
+        }
+        else
+        {
+          stateDone = true;
+        }
+        break;
+      }
+      case 4:
+      {
+        if ( shoot )
+        {
+          if ( m_initState )
+          {
+            fmt::print("Init 4\n");
+            m_autoTimer.Stop();
+            m_autoTimer.Reset();
+            m_autoTimer.Start();
+          }
+          stateDone = AimAndShootInAuto();
+        }
+        else
+        {
+          stateDone = true;
+        }
+        break;
+      }
+
+
+
+
+      case 5:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 2\n");
+          m_initialAngle = m_autoStartAngle + 180;
+        }
+        stateDone = RotateDegrees( m_initialAngle - 165.0 );
+
+        if ( ballPickupTest )
+        {
+          MoveIntakeIn();
+
+          if ( IntakeMovingInward() )
+          {
+            m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+          }
+          else
+          {
+            m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
+          }
+        }
+        break;
+      }
+
+      case 6:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 5\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime( 0.8, 2.2, m_initialAngle );
+
+        if ( ballPickupTest )
+        {
+          m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+          MoveIntakeOut();
+        }
+
+
+        break;
+      }
+
+
+
+      case 7:
+      {
+        if ( shoot )
+        {
+          if ( m_initState )
+          {
+            fmt::print("Init 2\n");
+            m_initialAngle = m_imu.GetAngle();
+          }
+          stateDone = RotateDegrees( m_initialAngle + 180.0 );
+
+          if ( ballPickupTest )
+          {
+            MoveIntakeIn();
+
+            if ( IntakeMovingInward() )
+            {
+              m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+            }
+            else
+            {
+              m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
+            }
+          }
+        }
+        else
+        {
+          stateDone = true;
+        }
+        break;
+      }
+
+     case 8:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 1\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime(0.8, 1.5, m_initialAngle );
+
+        if ( ballPickupTest )
+        {
+          MoveIntakeIn();
+
+          if ( IntakeMovingInward() )
+          {
+            m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+          }
+          else
+          {
+            m_intakeSpin.Set( ControlMode::PercentOutput, 0.0 );
+          }
+        }
+
+        break;
+      }
+
+      case 9:
+      {
+        if ( shoot )
+        {
+          if ( m_initState )
+          {
+            fmt::print("Init 3\n");
+            limelightNetworkTable->PutNumber( "camMode", 0 );
+            limelightNetworkTable->PutNumber( "ledMode", 3 ); //  3	force on
+            m_rotatePid.Reset();
+            m_rotatePid.SetSetpoint( kRotatePidSetpoint );
+            m_autoTimer.Stop();
+            m_autoTimer.Reset();
+            m_autoTimer.Start();
+          }
+          stateDone = AimInAuto();
+          if ( m_autoTimer.Get() > (units::time::second_t)1.0 )
+          {
+            stateDone = true;
+          }
+        }
+        else
+        {
+          stateDone = true;
+        }
+        break;
+      }
+      case 10:
+      {
+        if ( shoot )
+        {
+          if ( m_initState )
+          {
+            fmt::print("Init 4\n");
+            m_autoTimer.Stop();
+            m_autoTimer.Reset();
+            m_autoTimer.Start();
+          }
+          stateDone = AimAndShootInAuto();
+        }
+        else
+        {
+          stateDone = true;
+        }
+        break;
+      }
+
+      default:
+      {
+        limelightNetworkTable->PutNumber( "camMode", 1 );
+        limelightNetworkTable->PutNumber( "ledMode", 1 ); //  3	force on
+        m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
+
+        // Done, do nothing
+        break;
+      }
+    }
+
+    if ( m_initState )
+    {
+      m_initState = false;
+    }
+
+    if ( stateDone )
+    {
+      fmt::print( "stateDone {}\n", m_autoState );
+      m_autoState++;
+      m_initState = true;
+    }
+  }
+  else
+  {
+    CalibrateShooterAngle();
+  }
+}
+
+bool Robot::DriveForTime( double speed, double time, double initialAngle )
+{
+  double rotationSpeed = m_rotateGyroPid.Calculate( m_imu.GetAngle(), initialAngle );
+
   if ( m_autoTimer.Get() < (units::time::second_t)time )
   {
-    m_drive.DriveCartesian( -0.8, 0.0, 0.0 );
+    m_drive.DriveCartesian( -speed, 0.0, -rotationSpeed );
     return false;
   }
   else
@@ -941,7 +1330,7 @@ bool Robot::AimAndShootInAuto()
   UpdateShooterHoodAngleForHighGoal();
   UpdateShooterSpeed();
 
-  if ( m_autoTimer.Get() > (units::time::second_t)2.0 ) 
+  if ( m_autoTimer.Get() > (units::time::second_t)0.5 ) 
   {
     m_indexer.Set( -1.0 );
   }
@@ -950,7 +1339,7 @@ bool Robot::AimAndShootInAuto()
     m_indexer.Set( 0.0 );
   }
 
-  if ( m_autoTimer.Get() < (units::time::second_t)3.0 )
+  if ( m_autoTimer.Get() < (units::time::second_t)1.2 )
   {
     return false;
   }
