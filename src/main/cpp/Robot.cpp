@@ -27,6 +27,7 @@ void Robot::RobotInit() {
   m_wheelRearLeft.SetInverted( true );
 
   m_chooser.SetDefaultOption(kAutoNameDefault, kAutoNameDefault);
+  m_chooser.AddOption(kAutoThreeBall, kAutoThreeBall);
   m_chooser.AddOption(kAutoOneBall, kAutoOneBall);
   m_chooser.AddOption(kAutoDrive, kAutoDrive);
   frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
@@ -165,10 +166,14 @@ void Robot::AutonomousPeriodic() {
    m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
   if ( m_hoodAngleCalFinished )
   {
-    if (m_autoSelected == kAutoOneBall) 
+    if (m_autoSelected == kAutoThreeBall) 
     {
       RunThreeBallAuto( true );
-    } 
+    }
+    else if (m_autoSelected == kAutoOneBall)
+    {
+      RunOneBallAuto( true );
+    }
     else if (m_autoSelected == kAutoDrive) 
     {
       RunOneBallAuto( false );

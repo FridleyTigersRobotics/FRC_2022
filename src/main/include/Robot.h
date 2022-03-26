@@ -78,6 +78,7 @@ class Robot : public frc::TimedRobot {
   frc::SendableChooser<std::string> m_chooser;
   const std::string    kAutoNameDefault = "Default";
   const std::string    kAutoOneBall     = "One Ball";
+  const std::string    kAutoThreeBall   = "Three Ball";
   const std::string    kAutoDrive       = "Drive";
   std::string          m_autoSelected;
   bool                 m_hoodAngleCalFinished{false};
