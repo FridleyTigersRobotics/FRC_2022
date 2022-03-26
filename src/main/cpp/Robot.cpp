@@ -777,7 +777,7 @@ void Robot::RunOneBallAuto( bool shoot )
           m_autoTimer.Start();
           m_initialAngle = m_imu.GetAngle();
         }
-        stateDone = DriveForTime( 0.6, 1.2, m_initialAngle );
+        stateDone = DriveForTime( 0.6, 1.4, m_initialAngle );
 
         if ( ballPickupTest )
         {
@@ -965,7 +965,7 @@ void Robot::RunThreeBallAuto( bool shoot )
           m_autoTimer.Start();
           m_initialAngle = m_imu.GetAngle();
         }
-        stateDone = DriveForTime( 0.6, 1.4, m_initialAngle );
+        stateDone = DriveForTime( 0.6, 1.5, m_initialAngle );
 
         if ( ballPickupTest )
         {
@@ -1052,7 +1052,7 @@ void Robot::RunThreeBallAuto( bool shoot )
             m_autoTimer.Start();
           }
           stateDone = AimInAuto();
-          if ( m_autoTimer.Get() > (units::time::second_t)1.0 )
+          if ( m_autoTimer.Get() > (units::time::second_t)0.8 )
           {
             stateDone = true;
           }
@@ -1133,9 +1133,29 @@ void Robot::RunThreeBallAuto( bool shoot )
         break;
       }
 
-
-
       case 7:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 5\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime( 0.0, 0.3, m_initialAngle );
+
+        if ( ballPickupTest )
+        {
+          m_intakeSpin.Set( ControlMode::PercentOutput, -1 );
+          MoveIntakeOut();
+        }
+
+
+        break;
+      }
+
+      case 8:
       {
         if ( shoot )
         {
@@ -1167,7 +1187,7 @@ void Robot::RunThreeBallAuto( bool shoot )
         break;
       }
 
-     case 8:
+     case 9:
       {
         if ( m_initState )
         {
@@ -1177,7 +1197,7 @@ void Robot::RunThreeBallAuto( bool shoot )
           m_autoTimer.Start();
           m_initialAngle = m_imu.GetAngle();
         }
-        stateDone = DriveForTime(0.8, 1.5, m_initialAngle );
+        stateDone = DriveForTime(1.0, 1.2, m_initialAngle );
 
         if ( ballPickupTest )
         {
@@ -1196,7 +1216,7 @@ void Robot::RunThreeBallAuto( bool shoot )
         break;
       }
 
-      case 9:
+      case 10:
       {
         if ( shoot )
         {
@@ -1223,7 +1243,7 @@ void Robot::RunThreeBallAuto( bool shoot )
         }
         break;
       }
-      case 10:
+      case 11:
       {
         if ( shoot )
         {
@@ -1335,7 +1355,7 @@ bool Robot::AimAndShootInAuto()
   UpdateShooterHoodAngleForHighGoal();
   UpdateShooterSpeed();
 
-  if ( m_autoTimer.Get() > (units::time::second_t)0.5 ) 
+  if ( m_autoTimer.Get() > (units::time::second_t)0.1 ) 
   {
     m_indexer.Set( -1.0 );
   }
@@ -1344,7 +1364,7 @@ bool Robot::AimAndShootInAuto()
     m_indexer.Set( 0.0 );
   }
 
-  if ( m_autoTimer.Get() < (units::time::second_t)1.2 )
+  if ( m_autoTimer.Get() < (units::time::second_t)0.8 )
   {
     return false;
   }
