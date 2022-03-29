@@ -28,6 +28,7 @@ void Robot::RobotInit() {
 
   m_chooser.SetDefaultOption(kAutoNameDefault, kAutoNameDefault);
   m_chooser.AddOption(kAutoThreeBall, kAutoThreeBall);
+  m_chooser.AddOption(kAutoTwoBall, kAutoTwoBall);
   m_chooser.AddOption(kAutoOneBall, kAutoOneBall);
   m_chooser.AddOption(kAutoDrive, kAutoDrive);
   frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
@@ -39,7 +40,7 @@ void Robot::RobotInit() {
   m_rotatePid.SetTolerance(5.0, 10);
   m_rotatePid.SetIntegratorRange(-0.6, 0.6);
 
-  m_rotateGyroPid.SetTolerance(5.0, 10);
+  m_rotateGyroPid.SetTolerance(2.0, 10);
   m_rotateGyroPid.SetIntegratorRange(-0.6, 0.6);
 
   m_shooterMotor.RestoreFactoryDefaults();
@@ -162,6 +163,17 @@ void Robot::AutonomousPeriodic() {
   //show IMU gyro values
   //IMUgyroView();
 
+
+  if( m_climbStop.Get() ) // check if bottomed out climber
+  {
+    m_climber.Set( ControlMode::PercentOutput, 0.0 );
+    m_climbEncoder.Reset(); //re-zero encoder count
+  }
+  else
+  {
+    m_climber.Set( ControlMode::PercentOutput, -0.3 );
+  }
+
   // Calibrate Hood Angle.
    m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
   if ( m_hoodAngleCalFinished )
@@ -170,13 +182,17 @@ void Robot::AutonomousPeriodic() {
     {
       RunThreeBallAuto( true );
     }
+    else if (m_autoSelected == kAutoTwoBall)
+    {
+      RunTwoBallAuto( true );
+    }
     else if (m_autoSelected == kAutoOneBall)
     {
       RunOneBallAuto( true );
     }
     else if (m_autoSelected == kAutoDrive) 
     {
-      RunOneBallAuto( false );
+      DriveAuto( false );
     } 
     else 
     {
@@ -195,6 +211,7 @@ void Robot::AutonomousPeriodic() {
 void Robot::TeleopInit() {
   m_climbStarted = false;
   m_intakeMotionEnable = true;
+  m_imu.ResetDisplacement();
 }
 
 
@@ -752,6 +769,10 @@ void Robot::IMUgyroView()
   frc::SmartDashboard::PutNumber(  "IMU_YawRateDPS",       m_imu.GetRate());
   frc::SmartDashboard::PutNumber(  "Displacement_X",       m_imu.GetDisplacementX() );
   frc::SmartDashboard::PutNumber(  "Displacement_Y",       m_imu.GetDisplacementY() );
+  frc::SmartDashboard::PutNumber(  "Displacement_Z",       m_imu.GetDisplacementZ() );
+  frc::SmartDashboard::PutNumber(  "GetVelocityX",       m_imu.GetVelocityX() );
+  frc::SmartDashboard::PutNumber(  "GetVelocityY",       m_imu.GetVelocityY() );
+  frc::SmartDashboard::PutNumber(  "GetVelocityZ",       m_imu.GetVelocityZ() );
 
 }
 
@@ -759,7 +780,208 @@ void Robot::IMUgyroView()
 bool ballPickupTest = true;
 
 // Autos
+void Robot::DriveAuto( bool shoot )
+{
+  bool stateDone = false;
+
+  if ( m_hoodAngleCalFinished )
+  {
+    switch( m_autoState )
+    {
+      case 0:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 0\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime( 0.6, 1.5, m_initialAngle );
+
+        break;
+      }
+
+      default:
+      {
+        limelightNetworkTable->PutNumber( "camMode", 1 );
+        limelightNetworkTable->PutNumber( "ledMode", 1 ); //  3	force on
+        m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
+
+        // Done, do nothing
+        break;
+      }
+    }
+
+    if ( m_initState )
+    {
+      m_initState = false;
+    }
+
+    if ( stateDone )
+    {
+      fmt::print( "stateDone {}\n", m_autoState );
+      m_autoState++;
+      m_initState = true;
+    }
+  }
+  else
+  {
+    CalibrateShooterAngle();
+  }
+}
+
 void Robot::RunOneBallAuto( bool shoot )
+{
+  bool stateDone = false;
+
+  if ( m_hoodAngleCalFinished )
+  {
+    switch( m_autoState )
+    {
+      case 0:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 0\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime( 0.6, 1.4, m_initialAngle );
+
+        break;
+      }
+
+      case 1:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 1\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime( -0.6, 0.2, m_initialAngle );
+
+        break;
+      }
+
+      case 2:
+      {
+        if ( shoot )
+        {
+          if ( m_initState )
+          {
+            fmt::print("Init 2\n");
+            m_initialAngle = m_imu.GetAngle();
+          }
+          stateDone = RotateDegrees( m_initialAngle + 180.0 );
+        }
+        else
+        {
+          stateDone = true;
+        }
+        break;
+      }
+      case 3:
+      {
+        if ( shoot )
+        {
+          if ( m_initState )
+          {
+            fmt::print("Init 3\n");
+            limelightNetworkTable->PutNumber( "camMode", 0 );
+            limelightNetworkTable->PutNumber( "ledMode", 3 ); //  3	force on
+            m_rotatePid.Reset();
+            m_rotatePid.SetSetpoint( kRotatePidSetpoint );
+            m_autoTimer.Stop();
+            m_autoTimer.Reset();
+            m_autoTimer.Start();
+          }
+          stateDone = AimInAuto();
+          if ( m_autoTimer.Get() > (units::time::second_t)1.0 )
+          {
+            stateDone = true;
+          }
+        }
+        else
+        {
+          stateDone = true;
+        }
+        break;
+      }
+      case 4:
+      {
+        if ( shoot )
+        {
+          if ( m_initState )
+          {
+            fmt::print("Init 4\n");
+            m_autoTimer.Stop();
+            m_autoTimer.Reset();
+            m_autoTimer.Start();
+          }
+          stateDone = AimAndShootInAuto();
+        }
+        else
+        {
+          stateDone = true;
+        }
+        break;
+      }
+
+      case 5:
+      {
+        if ( m_initState )
+        {
+          fmt::print("Init 5\n");
+          m_autoTimer.Stop();
+          m_autoTimer.Reset();
+          m_autoTimer.Start();
+          m_initialAngle = m_imu.GetAngle();
+        }
+        stateDone = DriveForTime( -0.6, 0.5, m_initialAngle );
+
+        break;
+      }
+
+
+
+      default:
+      {
+        limelightNetworkTable->PutNumber( "camMode", 1 );
+        limelightNetworkTable->PutNumber( "ledMode", 1 ); //  3	force on
+        m_drive.DriveCartesian( 0.0, 0.0, 0.0 );
+
+        // Done, do nothing
+        break;
+      }
+    }
+
+    if ( m_initState )
+    {
+      m_initState = false;
+    }
+
+    if ( stateDone )
+    {
+      fmt::print( "stateDone {}\n", m_autoState );
+      m_autoState++;
+      m_initState = true;
+    }
+  }
+  else
+  {
+    CalibrateShooterAngle();
+  }
+}
+
+// Autos
+void Robot::RunTwoBallAuto( bool shoot )
 {
   bool stateDone = false;
 
@@ -905,7 +1127,7 @@ void Robot::RunOneBallAuto( bool shoot )
           m_autoTimer.Start();
           m_initialAngle = m_imu.GetAngle();
         }
-        stateDone = DriveForTime( -0.6, 0.4, m_initialAngle );
+        stateDone = DriveForTime( -0.6, 0.5, m_initialAngle );
 
         break;
       }
@@ -940,8 +1162,6 @@ void Robot::RunOneBallAuto( bool shoot )
     CalibrateShooterAngle();
   }
 }
-
-
 
 
 
@@ -1093,7 +1313,7 @@ void Robot::RunThreeBallAuto( bool shoot )
           fmt::print("Init 2\n");
           m_initialAngle = m_autoStartAngle + 180;
         }
-        stateDone = RotateDegrees( m_initialAngle - 165.0 );
+        stateDone = RotateDegrees( m_initialAngle - 167.0 );
 
         if ( ballPickupTest )
         {
