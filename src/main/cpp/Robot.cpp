@@ -22,6 +22,8 @@ void Robot::RobotInit() {
   limelightNetworkTable->PutNumber( "camMode", 1 );
   limelightNetworkTable->PutNumber( "ledMode", 1 ); //  1	force off
 
+  cs::UsbCamera Camera = frc::CameraServer::StartAutomaticCapture();
+  Camera.SetResolution( 160, 120 );
 
   m_wheelFrontLeft.SetInverted( true );
   m_wheelRearLeft.SetInverted( true );
@@ -144,7 +146,16 @@ void Robot::RobotInit() {
  * <p> This runs after the mode specific periodic functions, but before
  * LiveWindow and SmartDashboard integrated updating.
  */
-void Robot::RobotPeriodic() {}
+void Robot::RobotPeriodic() {
+
+  if ( !IsEnabled() )
+  {
+    limelightNetworkTable->PutNumber( "camMode", 1 );
+    limelightNetworkTable->PutNumber( "ledMode", 1 ); //  1	force off
+  }
+
+
+}
 
 void Robot::AutonomousInit() {
   m_autoSelected = m_chooser.GetSelected();

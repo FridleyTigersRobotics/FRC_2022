@@ -7,6 +7,7 @@
 #include <string>
 
 #include "frc/smartdashboard/Smartdashboard.h"
+#include "cameraserver/CameraServer.h"
 #include "networktables/NetworkTable.h"
 #include "networktables/NetworkTableInstance.h"
 #include "networktables/NetworkTableEntry.h"
@@ -79,10 +80,10 @@ class Robot : public frc::TimedRobot {
  private:
   frc::SendableChooser<std::string> m_chooser;
   const std::string    kAutoNameDefault = "Default";
+  const std::string    kAutoDrive       = "Drive";
   const std::string    kAutoOneBall     = "One Ball";
   const std::string    kAutoTwoBall     = "Two Ball";
   const std::string    kAutoThreeBall   = "Three Ball";
-  const std::string    kAutoDrive       = "Drive";
   std::string          m_autoSelected;
   bool                 m_hoodAngleCalFinished{false};
 
@@ -192,4 +193,5 @@ class Robot : public frc::TimedRobot {
   double m_longRangeStartAngle{2.0};
   bool   m_climbStarted{false};
   bool   m_intakeMotionEnable{true};
+
 };
